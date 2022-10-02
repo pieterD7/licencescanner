@@ -32,7 +32,28 @@ typedef struct field{
     }
 } field;
 
+typedef struct methodIDs{
+    jmethodID rectConstructor;
+    jmethodID arrayListConstructor;
+    jmethodID arrayListAdd;
+} methodIDs;
+
+typedef struct method{
+    const char * class_name;
+    const char * method_name;
+    const char * call_stack;
+    jmethodID * jmethod;
+    method(const char * class_name, const char * method_name, const char * call_stack, jmethodID *methodID){
+        this->class_name = class_name;
+        this->method_name = method_name;
+        this->call_stack = call_stack;
+        this->jmethod = methodID;
+    }
+} method;
+
 fieldIDs* fields = new fieldIDs();
+
+methodIDs *methods = new methodIDs();
 
 string licence = "";
 
@@ -66,6 +87,29 @@ static int find_fields(JNIEnv *env, field *fields, int count)
     return 0;
 }
 
+static int find_methods(JNIEnv *env, method *methods, int count){
+    jclass clazz;
+    for(int i = 0; i < count; i++){
+
+        method *m = &methods[i];
+        clazz = env->FindClass(m->class_name);
+
+        if (env->ExceptionCheck()) {
+          LOGD("JNI error");
+          return -1;
+        }
+        if (clazz == NULL) {
+            LOGD("Can't find %s", m->class_name);
+            return -1;
+        }
+        jmethodID method = env->GetMethodID(clazz, m->method_name, m->call_stack);
+        *(m->jmethod) = method;
+    }
+    env->DeleteLocalRef(clazz);
+
+    return 0;
+}
+
 jobject setRectangle(JNIEnv* env, jobject objRect, Rect rect){
     (env)->SetIntField(objRect, fields->rectTop, rect.y);
     if (env->ExceptionCheck()) {
@@ -92,76 +136,62 @@ jobject setRectangle(JNIEnv* env, jobject objRect, Rect rect){
 
 jobject createRectangles(JNIEnv* env, Rect rect ){
 
-    jclass clsArrayList = (env)->FindClass("java/util/ArrayList");
+    jclass clsArrayList = env->FindClass("java/util/ArrayList");
+
+    jclass clsRect = env->FindClass("android/graphics/Rect");
+
+    jobject objArrayList = (env)->NewObject(clsArrayList, methods->arrayListConstructor, "");
     if (env->ExceptionCheck()) {
       LOGD("JNI error");
       return jobject();
     }
-    jmethodID constructor = (env)->GetMethodID(clsArrayList, "<init>", "()V");
-    if (env->ExceptionCheck()) {
-      LOGD("JNI error");
-      return jobject();
-    }
-    jobject objArrayList = (env)->NewObject(clsArrayList, constructor, "");
-    if (env->ExceptionCheck()) {
-      LOGD("JNI error");
-      return jobject();
-    }
-    jobject objArrayList0 = (env)->NewObject(clsArrayList, constructor, "");
+
+    jobject objArrayList1 = (env)->NewObject(clsArrayList, methods->arrayListConstructor, "");
     if (env->ExceptionCheck()) {
       LOGD("JNI error");
         return jobject();
     }
-    jobject objArrayList2 = (env)->NewObject(clsArrayList, constructor, "");
-    if (env->ExceptionCheck()) {
-      LOGD("JNI error");
-      return jobject();
-    }
-    jobject objArrayList3 = (env)->NewObject(clsArrayList, constructor, "");
-    if (env->ExceptionCheck()) {
-      LOGD("JNI error");
-      return jobject();
-    }
-    jmethodID arrayListAdd = (env)->GetMethodID(clsArrayList, "add", "(Ljava/lang/Object;)Z");
-    if (env->ExceptionCheck()) {
-      LOGD("JNI error");
-      return jobject();
-    }
-    jclass clsRect = (env)->FindClass("android/graphics/Rect");
-    if (env->ExceptionCheck()) {
-      LOGD("JNI error");
-      return jobject();
-    }
-    jmethodID constructorRect = (env)->GetMethodID(clsRect, "<init>", "()V");
+
+    jobject objArrayList2 = (env)->NewObject(clsArrayList, methods->arrayListConstructor, "");
     if (env->ExceptionCheck()) {
       LOGD("JNI error");
       return jobject();
     }
 
-    jobject objRect0 = (env)->NewObject(clsRect, constructorRect, "");
+    jobject objArrayList3 = (env)->NewObject(clsArrayList, methods->arrayListConstructor, "");
+    if (env->ExceptionCheck()) {
+      LOGD("JNI error");
+      return jobject();
+    }
+
+    jobject objRect0 = (env)->NewObject(clsRect, methods->rectConstructor, "");
 
     setRectangle(env, objRect0, rect);
 
-    env->CallBooleanMethod(objArrayList0, arrayListAdd, objRect0);
+    env->CallBooleanMethod(objArrayList1, methods->arrayListAdd, objRect0);
     if (env->ExceptionCheck()) {
       LOGD("JNI error");
       return jobject();
     }
 
-    env->CallBooleanMethod(objArrayList2, arrayListAdd, objArrayList0);
+    env->DeleteLocalRef(objRect0);
+
+    env->CallBooleanMethod(objArrayList, methods->arrayListAdd, objArrayList1);
     if (env->ExceptionCheck()) {
       LOGD("JNI error");
       return jobject();
     }
+
+    env->DeleteLocalRef(objArrayList1);
 
     vector<MatrixElement*> dmatrix = get_dmatrix();
 
     vector<Rect*> type = get_type();
 
     for(int n = 0; n < dmatrix.size(); n++){
-        jobject objRect = (env)->NewObject(clsRect, constructorRect, "");
+        jobject objRect = (env)->NewObject(clsRect, methods->rectConstructor, "");
 
-        jobject objRect2 = (env)->NewObject(clsRect, constructorRect, "");
+        jobject objRect2 = (env)->NewObject(clsRect, methods->rectConstructor, "");
 
         MatrixElement* el = dmatrix[n];
         Rect rect = *type[el->b];
@@ -170,12 +200,12 @@ jobject createRectangles(JNIEnv* env, Rect rect ){
         setRectangle(env, objRect, rect);
         setRectangle(env, objRect2, rect2);
 
-        env->CallBooleanMethod(objArrayList, arrayListAdd, objRect);
+        env->CallBooleanMethod(objArrayList2, methods->arrayListAdd, objRect);
         if (env->ExceptionCheck()) {
           LOGD("JNI error");
           return jobject();
         }
-        env->CallBooleanMethod(objArrayList, arrayListAdd, objRect2);
+        env->CallBooleanMethod(objArrayList2, methods->arrayListAdd, objRect2);
         if (env->ExceptionCheck()) {
           LOGD("JNI error");
           return jobject();
@@ -190,19 +220,21 @@ jobject createRectangles(JNIEnv* env, Rect rect ){
         if (env->ExceptionCheck()) {
              LOGD("JNI error");
              return jobject();
-         }
+        }
     }
 
-    env->CallBooleanMethod(objArrayList2, arrayListAdd, objArrayList);
+    env->CallBooleanMethod(objArrayList, methods->arrayListAdd, objArrayList2);
+
+    env->DeleteLocalRef(objArrayList2);
 
     for(int n = 0; n < type.size(); n++){
         Rect rect = *type[n];
 
-        jobject objRect3 = (env)->NewObject(clsRect, constructorRect, "");
+        jobject objRect3 = (env)->NewObject(clsRect, methods->rectConstructor, "");
 
         setRectangle(env, objRect3, rect);
 
-        env->CallBooleanMethod(objArrayList3, arrayListAdd, objRect3);
+        env->CallBooleanMethod(objArrayList3, methods->arrayListAdd, objRect3);
         if (env->ExceptionCheck()) {
           LOGD("JNI error");
           return jobject();
@@ -215,10 +247,19 @@ jobject createRectangles(JNIEnv* env, Rect rect ){
         }
     }
 
-    env->CallBooleanMethod(objArrayList2, arrayListAdd, objArrayList3);
+    env->CallBooleanMethod(objArrayList, methods->arrayListAdd, objArrayList3);
+    if (env->ExceptionCheck()) {
+        LOGD("JNI error");
+        return jobject();
+    }
 
-    if(clsArrayList != NULL)
-    {
+    env->DeleteLocalRef(objArrayList3);
+    if (env->ExceptionCheck()) {
+        LOGD("JNI error");
+        return jobject();
+    }
+
+    if(clsArrayList != NULL){
         env->DeleteLocalRef(clsArrayList);
         if (env->ExceptionCheck()) {
             LOGD("JNI error");
@@ -226,7 +267,15 @@ jobject createRectangles(JNIEnv* env, Rect rect ){
         }
     }
 
-    return objArrayList2;
+    if(clsRect != NULL){
+        env->DeleteLocalRef(clsRect);
+        if (env->ExceptionCheck()) {
+            LOGD("JNI error");
+            return jobject();
+        }
+    }
+
+    return objArrayList;
 }
 
 void init(
@@ -315,7 +364,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     if (c == nullptr) return JNI_ERR;
 
     // Register your class' native methods.
-    static const JNINativeMethod methods[] = {
+    static const JNINativeMethod native_methods[] = {
         {"init", "(Ljava/lang/String;Ljava/lang/String;)V",
             reinterpret_cast<void*>(init)},
         //{"analyse_exit", "()V", reinterpret_cast<void*>(analyse_exit)},
@@ -324,7 +373,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         {"get_licence", "()Ljava/lang/String;",
             reinterpret_cast<void*>(get_licence)}
     };
-    int rc = env->RegisterNatives(c, methods, sizeof(methods)/sizeof(JNINativeMethod));
+    int rc = env->RegisterNatives(c, native_methods, sizeof(native_methods)/sizeof(JNINativeMethod));
     if (rc != JNI_OK) return rc;
 
     /// An array for collecting all the fields
@@ -339,6 +388,15 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 
     /// Find all the field IDs
     if (find_fields(env, fields_to_find, sizeof(fields_to_find)/sizeof(fields_to_find[0])))
+        return -1;
+
+    method methods_to_find[] = {
+        {"android/graphics/Rect", "<init>", "()V", &methods->rectConstructor},
+        {"java/util/ArrayList", "<init>", "()V", &methods->arrayListConstructor},
+        {"java/util/ArrayList", "add", "(Ljava/lang/Object;)Z", &methods->arrayListAdd},
+    };
+
+    if(find_methods(env, methods_to_find, sizeof(methods_to_find)/sizeof(methods_to_find[0])))
         return -1;
 
     //LOGD("TEST %d", test);
